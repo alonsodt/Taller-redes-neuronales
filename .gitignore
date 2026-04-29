@@ -1,0 +1,55 @@
+# === Datos pesados (los regenera el notebook 00) ===
+data/*.parquet
+data/*.csv
+data/*.feather
+data/*.pkl
+!data/.gitkeep
+!data/README.md
+
+# === Checkpoints de modelos (pueden ser pesados) ===
+results/checkpoints/*
+!results/checkpoints/.gitkeep
+
+# === Entornos virtuales ===
+venv/
+env/
+.venv/
+.env/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# === Jupyter ===
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# === IDEs ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === SO ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Logs y archivos temporales ===
+*.log
+*.tmp
+.cache/
+
+# === Wandb / TensorBoard ===
+wandb/
+runs/
+logs/

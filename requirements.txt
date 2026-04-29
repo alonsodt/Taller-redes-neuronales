@@ -1,0 +1,27 @@
+# === Manipulación de datos ===
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0
+pyarrow>=14.0.0          # Para guardar/leer Parquet
+
+# === Datos financieros ===
+yfinance>=0.2.40
+
+# === Visualización ===
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# === Machine learning clásico ===
+scikit-learn>=1.3.0
+
+# === Deep learning ===
+# Para Windows en CPU. TF 2.15+ es compatible con Keras 3.
+tensorflow>=2.15.0,<2.17.0
+keras>=3.0.0
+
+# === Notebook ===
+jupyter>=1.0.0
+ipykernel>=6.25.0
+notebook>=7.0.0
+
+# === Utilidades ===
+tqdm>=4.65.0             # Barras de progreso en bucles largos
