@@ -207,13 +207,14 @@ def build_conv1d_model(
             n_filters,
             kernel_size=kernel_size,
             activation="relu",
-            padding="causal",
+            padding="same", 
             name=f"conv1d_{i+1}",
         )(x)
+        x = layers.MaxPooling1D(pool_size=2, padding="same", name=f"maxpool_{i+1}")(x)
         if dropout > 0.0:
             x = layers.Dropout(dropout, name=f"dropout_{i+1}")(x)
 
-    x = layers.GlobalAveragePooling1D(name="global_avg_pool")(x)
+    x = layers.Flatten(name="flatten")(x)
     outputs = layers.Dense(n_outputs, name="output")(x)
 
     model = Model(inputs=inputs, outputs=outputs, name="Conv1D")
