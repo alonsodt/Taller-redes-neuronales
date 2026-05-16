@@ -28,6 +28,19 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHECKPOINTS_DIR = PROJECT_ROOT / "results" / "checkpoints"
 CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
 
+def fijar_semilla(seed: int = 42):
+    """
+    Fija todas las semillas de aleatoriedad para reproducibilidad.
+    Llama a esta función antes de instanciar y entrenar cualquier modelo.
+    """
+    import os
+    import random
+    import tensorflow as tf
+
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
 
 def entrenar_modelo(
     model: Model,
@@ -37,9 +50,10 @@ def entrenar_modelo(
     y_val: np.ndarray,
     epochs: int = 100,
     batch_size: int = 32,
-    patience: int = 15,
+    patience: int = 20,
     nombre: str = "modelo",
     verbose: int = 0,
+    seed: int = 42,
 ) -> keras.callbacks.History:
     """
     Entrena un modelo Keras con callbacks estándar del taller.
@@ -90,6 +104,8 @@ def entrenar_modelo(
     >>> from src.plotting import plot_curva_entrenamiento
     >>> plot_curva_entrenamiento(hist, title="Dense V=30 H=5")
     """
+    fijar_semilla(42) # Asegura reproducibilidad en cada entrenamiento
+
     checkpoint_path = CHECKPOINTS_DIR / f"{nombre}.keras"
 
     callbacks = [
