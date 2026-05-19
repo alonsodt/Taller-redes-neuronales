@@ -54,4 +54,5 @@ wandb/
 runs/
 logs/
 
+# === Herramientas Tentativas ===
 tentative/
