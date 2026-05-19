@@ -80,12 +80,14 @@ def entrenar_modelo(
     batch_size : int
         Tamaño del batch. 32 es el default razonable.
     patience : int
-        Épocas sin mejora en val_loss antes de parar. 15 es conservador
+        Épocas sin mejora en val_loss antes de parar. 20 es conservador
         pero evita parar demasiado pronto cuando la curva es ruidosa.
     nombre : str
         Nombre del modelo, usado para el archivo de checkpoint.
     verbose : int
         0 = silencioso, 1 = barra de progreso, 2 = una línea por época.
+    seed : int
+        Semilla de aleatoriedad para reproducibilidad.
 
     Returns
     -------
@@ -104,7 +106,7 @@ def entrenar_modelo(
     >>> from src.plotting import plot_curva_entrenamiento
     >>> plot_curva_entrenamiento(hist, title="Dense V=30 H=5")
     """
-    fijar_semilla(42) # Asegura reproducibilidad en cada entrenamiento
+    fijar_semilla(seed)  # Asegura reproducibilidad en cada entrenamiento
 
     checkpoint_path = CHECKPOINTS_DIR / f"{nombre}.keras"
 

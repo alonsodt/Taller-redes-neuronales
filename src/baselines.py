@@ -18,10 +18,6 @@ Notas
   durante la ventana de salida.
 - Estos baselines NO se entrenan con épocas; son cálculos directos o ajustes
   cerrados (mínimos cuadrados).
-
-NOTA: este módulo se completará en la Fase 2 del proyecto. La estructura está
-preparada pero las funciones se implementarán cuando trabajemos en
-01_baselines.ipynb.
 """
 
 from __future__ import annotations

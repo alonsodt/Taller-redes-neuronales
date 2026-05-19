@@ -12,6 +12,7 @@ Arquitecturas disponibles
 Densas:     build_dense_model
 Recurrentes: build_lstm_model, build_gru_model
 Conv:       build_conv1d_model
+Inception:  build_inception_1d_model
 Mixtas:     build_conv_lstm_model, build_conv_dense_model
 
 Notas de diseño
@@ -326,4 +327,71 @@ def build_conv_dense_model(
 
     outputs = layers.Dense(n_outputs, name="output")(x)
     model = Model(inputs=inputs, outputs=outputs, name="Conv1D_Dense")
+    return _compilar(model, lr)
+
+def build_inception_1d_model(
+    input_shape: tuple,
+    filters_b1: int = 32,
+    filters_b2: int = 32,
+    kernel_size_b1: int = 3,
+    kernel_size_b2: int = 7,
+    dropout: float = 0.2,
+    noise: float = 0.01,
+    n_outputs: int | None = None,
+    lr: float = 1e-3,
+) -> Model:
+    """
+    Arquitectura Inception 1D con dos ramas convolucionales paralelas.
+
+    Rama 1 usa un kernel pequeño para capturar patrones de corto plazo,
+    rama 2 usa un kernel grande para tendencias de largo plazo. Ambas
+    se fusionan mediante concatenación (estilo Inception de Szegedy et al.).
+
+    Parameters
+    ----------
+    input_shape : tuple       ej. (30, 23)
+    filters_b1 : int          filtros de la rama de corto plazo
+    filters_b2 : int          filtros de la rama de largo plazo
+    kernel_size_b1 : int      kernel de la rama 1 (corto plazo)
+    kernel_size_b2 : int      kernel de la rama 2 (largo plazo)
+    dropout : float           tasa de dropout antes de la capa de salida
+    noise : float             desviación del GaussianNoise (0 = desactivado)
+    n_outputs : int | None    número de salidas (None = input_shape[1])
+    lr : float                learning rate de Adam
+    """
+    if n_outputs is None:
+        n_outputs = input_shape[1]
+
+    inputs = Input(shape=input_shape, name="input")
+
+    # Inyección de ruido para evitar que memorice datos exactos
+    x_input = inputs
+    if noise > 0:
+        x_input = layers.GaussianNoise(noise, name="gaussian_noise")(x_input)
+
+    # Rama 1: Corto plazo
+    branch1 = layers.Conv1D(filters=filters_b1, kernel_size=kernel_size_b1, padding='same', name="conv1d_short")(x_input)
+    branch1 = layers.LayerNormalization(name="layernorm_short")(branch1)
+    branch1 = layers.Activation('relu', name="relu_short")(branch1)
+    branch1 = layers.MaxPooling1D(pool_size=2, name="maxpool_short")(branch1)
+
+    # Rama 2: Largo plazo
+    branch2 = layers.Conv1D(filters=filters_b2, kernel_size=kernel_size_b2, padding='same', name="conv1d_long")(x_input)
+    branch2 = layers.LayerNormalization(name="layernorm_long")(branch2)
+    branch2 = layers.Activation('relu', name="relu_long")(branch2)
+    branch2 = layers.MaxPooling1D(pool_size=2, name="maxpool_long")(branch2)
+
+    # Fusionar ramificaciones (Inception)
+    merged = layers.Concatenate(axis=-1, name="concat")([branch1, branch2])
+
+    # GlobalAveragePooling1D: más eficiente que Flatten y reduce sobreajuste
+    x = layers.GlobalAveragePooling1D(name="global_avg_pool")(merged)
+
+    if dropout > 0:
+        x = layers.Dropout(dropout, name="dropout")(x)
+
+    outputs = layers.Dense(n_outputs, name="output")(x)
+    
+    model = Model(inputs=inputs, outputs=outputs, name='Inception_1D_Model')
+    
     return _compilar(model, lr)

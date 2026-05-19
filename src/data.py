@@ -329,3 +329,109 @@ def preparar_datos(
         "X_val": X_val, "y_val": y_val,
         "X_test": X_test, "y_test": y_test,
     }
+
+
+#  Experimento: split aleatorizado con purging (sección 9 del notebook CNN) 
+def preparar_datos_purged(
+    returns: pd.DataFrame,
+    input_window: int,
+    output_window: int,
+    train_ratio: float = 0.80,
+    val_ratio: float = 0.10,
+    purge_gap: int | None = None,
+    seed: int = RANDOM_SEED,
+    verbose: bool = True,
+) -> dict:
+    """
+    Pipeline alternativo: ventanas + split aleatorizado con purging.
+
+    A diferencia de ``preparar_datos`` (split cronológico), aquí las ventanas
+    se asignan aleatoriamente a train/val/test. Para evitar *data leakage*
+    temporal, se aplica **purging** (López de Prado): se eliminan del
+    entrenamiento y validación las muestras cuyo periodo temporal se solapa
+    con cualquier muestra del conjunto de test.
+
+    Parameters
+    ----------
+    returns : pd.DataFrame
+        Retornos logarítmicos.
+    input_window : int
+        Tamaño de la ventana de entrada (V).
+    output_window : int
+        Tamaño de la ventana de salida (H).
+    train_ratio : float, default=0.80
+        Proporción inicial para entrenamiento (antes de purgar).
+    val_ratio : float, default=0.10
+        Proporción inicial para validación (antes de purgar).
+    purge_gap : int or None
+        Distancia mínima (en número de ventanas) que debe haber entre una
+        muestra de train/val y cualquier muestra de test para evitar leakage.
+        Si None, se usa ``input_window + output_window`` (conservador).
+    seed : int, default=42
+        Semilla para reproducibilidad del shuffle.
+    verbose : bool, default=True
+        Si True, imprime estadísticas del split y purging.
+
+    Returns
+    -------
+    dict con claves: X_train, X_val, X_test, y_train, y_val, y_test
+
+    Notes
+    -----
+    El purging es necesario porque las ventanas deslizantes se solapan
+    temporalmente. Si una ventana de train está muy cerca en el tiempo de
+    una ventana de test, comparten datos subyacentes y el modelo podría
+    "memorizar" información del futuro (leakage).
+    """
+    # 1. Crear ventanas (mismo proceso que preparar_datos)
+    X, y = crear_ventanas(returns, input_window, output_window)
+    n_samples = len(X)
+
+    # 2. Gap de purging por defecto: conservador
+    if purge_gap is None:
+        purge_gap = input_window + output_window
+
+    # 3. Shuffle de índices
+    rng = np.random.RandomState(seed)
+    indices = np.arange(n_samples)
+    rng.shuffle(indices)
+
+    # 4. Asignación inicial (antes de purgar)
+    n_train = int(n_samples * train_ratio)
+    n_val = int(n_samples * val_ratio)
+
+    train_idx = indices[:n_train]
+    val_idx = indices[n_train:n_train + n_val]
+    test_idx = indices[n_train + n_val:]
+
+    # 5. Purging: eliminar muestras de train/val demasiado cercanas a test
+    test_sorted = np.sort(test_idx)
+
+    def purge(idx_array, test_sorted, gap):
+        """Elimina índices cuya distancia mínima a cualquier test idx < gap."""
+        pos = np.searchsorted(test_sorted, idx_array)
+        min_dist = np.full(len(idx_array), gap + 1)
+        for offset in [0, -1]:
+            p = np.clip(pos + offset, 0, len(test_sorted) - 1)
+            d = np.abs(idx_array - test_sorted[p])
+            min_dist = np.minimum(min_dist, d)
+        return idx_array[min_dist >= gap]
+
+    train_purged = purge(train_idx, test_sorted, purge_gap)
+    val_purged = purge(val_idx, test_sorted, purge_gap)
+
+    if verbose:
+        print(f"[preparar_datos_purged] V={input_window}, H={output_window}")
+        print(f"  Ventanas totales: {n_samples}")
+        print(f"  Purge gap: {purge_gap}")
+        print(f"  Train: {len(train_purged)}/{n_train} "
+              f"(purgadas: {n_train - len(train_purged)})")
+        print(f"  Val:   {len(val_purged)}/{n_val} "
+              f"(purgadas: {n_val - len(val_purged)})")
+        print(f"  Test:  {len(test_idx)}")
+
+    return {
+        "X_train": X[train_purged], "y_train": y[train_purged],
+        "X_val": X[val_purged], "y_val": y[val_purged],
+        "X_test": X[test_idx], "y_test": y[test_idx],
+    }
