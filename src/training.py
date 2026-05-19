@@ -258,3 +258,115 @@ def entrenar_todos_los_modelos(
                   f"épocas={epocas}")
 
     return resultados
+
+
+class EarlyStoppingConMinimo(keras.callbacks.Callback):
+    """
+    Early stopping que garantiza un mínimo de épocas antes de parar.
+
+    A diferencia del EarlyStopping estándar, no para antes de
+    ``min_epochs`` épocas. Útil con lr=1e-5 donde el modelo
+    tarda más en converger.
+
+    Parameters
+    ----------
+    monitor : str       Métrica a monitorizar (default 'val_loss').
+    patience : int      Épocas sin mejora antes de parar (tras min_epochs).
+    min_epochs : int    Épocas mínimas antes de activar el ES.
+    min_delta : float   Mejora mínima que cuenta como mejora real.
+    """
+    def __init__(self, monitor="val_loss", patience=30,
+                 min_epochs=100, min_delta=1e-5):
+        super().__init__()
+        self.monitor    = monitor
+        self.patience   = patience
+        self.min_epochs = min_epochs
+        self.min_delta  = min_delta
+        self.mejor_val  = np.inf
+        self.contador   = 0
+        self.mejor_pesos = None
+
+    def on_epoch_end(self, epoch, logs=None):
+        val_actual = logs.get(self.monitor, np.inf)
+        if val_actual < self.mejor_val - self.min_delta:
+            self.mejor_val   = val_actual
+            self.contador    = 0
+            self.mejor_pesos = self.model.get_weights()
+        else:
+            self.contador += 1
+        if epoch + 1 >= self.min_epochs and self.contador >= self.patience:
+            print(f"\nEarlyStopping en época {epoch+1} "
+                  f"(min={self.min_epochs}, patience={self.patience})")
+            if self.mejor_pesos is not None:
+                self.model.set_weights(self.mejor_pesos)
+            self.model.stop_training = True
+
+    def on_train_end(self, logs=None):
+        if self.mejor_pesos is not None:
+            self.model.set_weights(self.mejor_pesos)
+
+
+def entrenar_modelo_lr5(
+    model,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    epochs: int = 300,
+    batch_size: int = 32,
+    patience: int = 30,
+    min_epochs: int = 100,
+    nombre: str = "modelo",
+    verbose: int = 0,
+    seed: int = 42,
+    lr: float = 1e-5,
+):
+    """
+    Entrena con lr bajo (1e-5) y EarlyStoppingConMinimo.
+
+    Garantiza min_epochs de entrenamiento antes de activar el ES.
+    Recompila el modelo con el lr especificado.
+    """
+    import tensorflow as tf
+    fijar_semilla(seed)
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+        loss="mean_absolute_error",
+        metrics=["mean_absolute_error"],
+    )
+
+    checkpoint_path = CHECKPOINTS_DIR / f"{nombre}.keras"
+
+    callbacks = [
+        keras.callbacks.ModelCheckpoint(
+            filepath=str(checkpoint_path),
+            monitor="val_loss",
+            save_best_only=True,
+            verbose=0,
+        ),
+        EarlyStoppingConMinimo(
+            monitor="val_loss",
+            patience=patience,
+            min_epochs=min_epochs,
+            min_delta=1e-5,
+        ),
+        keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss",
+            factor=0.5,
+            patience=10,
+            min_lr=1e-7,
+            verbose=0,
+        ),
+    ]
+
+    history = model.fit(
+        X_train, y_train,
+        validation_data=(X_val, y_val),
+        epochs=epochs,
+        batch_size=batch_size,
+        callbacks=callbacks,
+        verbose=verbose,
+    )
+
+    return history
